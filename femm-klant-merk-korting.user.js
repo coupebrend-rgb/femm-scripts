@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FEMM Antwerpen - Klant- en merkspecifieke kortingen (Sigma/Nelf/Epifanes)
 // @namespace    femm-antwerpen
-// @version      2.2
+// @version      2.3
 // @description  Herberekent automatisch de nettoprijs en het kortingspercentage voor Sigma-, Nelf- en Epifanes-artikelen op basis van de klantspecifieke afspraken (bruto prijslijsten), terwijl je een verkooporder invoert.
 // @match        https://start.exactonline.be/docs/SlsSalesOrderEntry.aspx*
 // @run-at       document-idle
@@ -18,6 +18,7 @@
   // v2.1 (29-09-2026): Sigma +5 (001187, 001544, 002130, 004138, 004139); Epifanes 002272/004097/004098 op 130 en
   //       001076 verwijderd (staat in netto-lijst); manometers 004128-004137 in netto-lijst.
   // v2.2: 8 filters 004140-004147 in netto-lijst.
+  // v2.3: nieuwe Fleetguard-filterlijst: 67 extra filtercodes (003208, 004152-004211 e.a.) in netto-lijst.
   // v1.4: 3 Sigma thinners toegevoegd (001545, 001916, 001372) - vallen onder "sigma" korting.
   const ARTICLES = {"002865": {"brand": "sigma", "name": "SIGMA ANTI-SKID POEDER 5 KG", "bruto": 133.0}, "000735": {"brand": "sigma", "name": "SIGMA COVER 280 1L", "bruto": 41.0}, "002378": {"brand": "sigma", "name": "SIGMA COVER 280 20L", "bruto": 439.0}, "001242": {"brand": "sigma", "name": "SIGMA COVER 280 4L", "bruto": 102.0}, "002131": {"brand": "sigma", "name": "SIGMA COVER 280 4L R/BR", "bruto": 102.0}, "001828": {"brand": "sigma", "name": "SIGMA COVER 280 HARDER 0.8L", "bruto": 32.0}, "002639": {"brand": "sigma", "name": "SIGMA COVER 280 HARDER 4L", "bruto": 126.0}, "002977": {"brand": "sigma", "name": "SIGMA COVER 280 PRIMER 4L", "bruto": 102.0}, "002469": {"brand": "sigma", "name": "SIGMA COVER 350 KLEUR 20L", "bruto": 643.0}, "002270": {"brand": "sigma", "name": "SIGMA COVER 380 BLACK 20L", "bruto": 511.0}, "000020": {"brand": "sigma", "name": "SIGMA COVER 380 BLACK 4L", "bruto": 124.0}, "002954": {"brand": "sigma", "name": "SIGMA COVER 380 HARDER 0.8L", "bruto": 34.0}, "002285": {"brand": "sigma", "name": "SIGMA COVER 380 HARDER 4L", "bruto": 151.0}, "002637": {"brand": "sigma", "name": "SIGMA COVER 435 4L KLEUR", "bruto": 140.0}, "001199": {"brand": "sigma", "name": "SIGMA COVER 456 KLEUR 4L", "bruto": 161.0}, "002756": {"brand": "sigma", "name": "SIGMA COVER 456 WIT 4L", "bruto": 129.0}, "002453": {"brand": "sigma", "name": "SIGMA DUR 1800 KLEUR 4L", "bruto": 235.0}, "002215": {"brand": "sigma", "name": "SIGMA DUR 520 4L KLEUR", "bruto": 138.0}, "002516": {"brand": "sigma", "name": "SIGMA DUR 550 H KLEUR 4L", "bruto": 178.0}, "001692": {"brand": "sigma", "name": "SIGMA DUR 550 WIT 4L", "bruto": 144.0}, "001542": {"brand": "sigma", "name": "SIGMA DUR 550 Z KLEUR 20L", "bruto": 690.0}, "000617": {"brand": "sigma", "name": "SIGMA DUR 550 Z KLEUR 4L", "bruto": 144.0}, "002283": {"brand": "sigma", "name": "SIGMA DUR 550 ZWART 4L", "bruto": 138.0}, "002126": {"brand": "sigma", "name": "SIGMA DUR HARDER 188/520/550 0.48 L", "bruto": 37.0}, "002302": {"brand": "sigma", "name": "SIGMA DUR HARDER 188/520/550 2.4 L", "bruto": 107.0}, "001986": {"brand": "sigma", "name": "SIGMA FAST 40 KLEUR 20L", "bruto": 377.0}, "002095": {"brand": "sigma", "name": "SIGMA FAST 40 KLEUR 5L", "bruto": 114.0}, "002214": {"brand": "sigma", "name": "SIGMA MARINE 40 KLEUR 5L", "bruto": 116.0}, "001908": {"brand": "sigma", "name": "SIGMA MARINE 40 WIT 5L", "bruto": 79.0}, "001906": {"brand": "sigma", "name": "SIGMA MARINE 40 ZWART 5L", "bruto": 116.0}, "001985": {"brand": "sigma", "name": "SIGMA MARINE 49 1L", "bruto": 26.0}, "002303": {"brand": "sigma", "name": "SIGMA MARINE 49 KLEUR 5L", "bruto": 122.0}, "002920": {"brand": "sigma", "name": "SIGMA MARINE 49 PERFECT WHITE 5L", "bruto": 106.0}, "002286": {"brand": "sigma", "name": "SIGMA PRIME 200 4L", "bruto": 135.0}, "002064": {"brand": "sigma", "name": "SIGMA THERM 500 5L", "bruto": 182.0}, "002008": {"brand": "sigma", "name": "SIGMA VIKOTE 18 LIGHT 5L", "bruto": 143.0}, "002007": {"brand": "sigma", "name": "SIGMA VIKOTE 42 20L ZWART", "bruto": 295.0}, "001543": {"brand": "sigma", "name": "SIGMA VIKOTE 56 20L", "bruto": 352.0}, "001547": {"brand": "sigma", "name": "SIGMA VIKOTE 56 KLEUR 5L", "bruto": 138.0}, "001827": {"brand": "sigma", "name": "SIGMA VIKOTE 56 WIT 5L", "bruto": 111.0}, "001884": {"brand": "sigma", "name": "SIGMA VIKOTE 56 ZWART 5L", "bruto": 113.0}, "001545": {"brand": "sigma", "name": "SIGMA THINNER 20-05 5L", "bruto": 65.0}, "001916": {"brand": "sigma", "name": "SIGMA THINNER 21-06 5L", "bruto": 65.0}, "001372": {"brand": "sigma", "name": "SIGMA THINNER 91-92 5L", "bruto": 62.0}, "001187": {"brand": "sigma", "name": "SIGMA MARINE 48 ZWART 5L", "bruto": 121.0}, "001544": {"brand": "sigma", "name": "SIGMA MARINE JACHTLAK KLEUR 4L", "bruto": 104.0}, "002130": {"brand": "sigma", "name": "SIGMA MARINE 48 KLEUR 5L", "bruto": 121.0}, "004138": {"brand": "sigma", "name": "SIGMA MARINE ONE 648Z KLEUR 5L", "bruto": 121.0}, "004139": {"brand": "sigma", "name": "SIGMA DUR 520 SET ALU LIGHT 4L", "bruto": 147.0}, "000243": {"brand": "epifanes", "name": "EPIFANES ALUMINIUM HR 1000 GRADEN 1L", "bruto": 30.0}, "001393": {"brand": "epifanes", "name": "EPIFANES ANTISLIPPOEDER 20 GR", "bruto": 7.77}, "001007": {"brand": "epifanes", "name": "EPIFANES ANTISLIPVERF 750 ML", "bruto": 32.15}, "001180": {"brand": "epifanes", "name": "EPIFANES BILGE VERF 2L", "bruto": 64.3}, "001091": {"brand": "epifanes", "name": "EPIFANES BILGE VERF 750ML", "bruto": 25.45}, "001340": {"brand": "epifanes", "name": "EPIFANES BOOTLAK 2L", "bruto": 60.74}, "000263": {"brand": "epifanes", "name": "EPIFANES BOOTLAK 750 ML", "bruto": 24.05}, "000248": {"brand": "epifanes", "name": "EPIFANES BOOTLAK BLANK 1 L", "bruto": 34.38}, "002605": {"brand": "epifanes", "name": "EPIFANES COMBI PLAMUUR 1000 GR", "bruto": 23.55}, "000956": {"brand": "epifanes", "name": "EPIFANES COMBI PLAMUUR TUBE", "bruto": 8.6}, "001390": {"brand": "epifanes", "name": "EPIFANES EASY-FLOW 1 L", "bruto": 23.55}, "001389": {"brand": "epifanes", "name": "EPIFANES EASY-FLOW 500 ML", "bruto": 12.89}, "001008": {"brand": "epifanes", "name": "EPIFANES EIGLANS BLANK 1 L", "bruto": 36.45}, "000399": {"brand": "epifanes", "name": "EPIFANES EPOXY FILLER 1500 1500ML", "bruto": 59.9}, "001032": {"brand": "epifanes", "name": "EPIFANES EPOXY FILLER 1500 750ML", "bruto": 36.1}, "002508": {"brand": "epifanes", "name": "EPIFANES EPOXY HB COAT 4L", "bruto": 168.93}, "002277": {"brand": "epifanes", "name": "EPIFANES FOUL-AWAY 2L", "bruto": 118.02}, "001386": {"brand": "epifanes", "name": "EPIFANES HAMERSLAGLAK 1 L", "bruto": 38.02}, "000247": {"brand": "epifanes", "name": "EPIFANES HARDHOUTOLIEVERNIS 1 L", "bruto": 36.45}, "002111": {"brand": "epifanes", "name": "EPIFANES MAHONIEBEITS 500ML", "bruto": 20.08}, "002140": {"brand": "epifanes", "name": "EPIFANES MATLAK ZWART 750ML", "bruto": 35.45}, "001381": {"brand": "epifanes", "name": "EPIFANES MONO-URETHANE BOOTLAK 750 ML", "bruto": 35.87}, "000764": {"brand": "epifanes", "name": "EPIFANES MONO-URETHANE BOOTLAK KLEUR 2L", "bruto": 106.86}, "000763": {"brand": "epifanes", "name": "EPIFANES MONO-URETHANE BOOTLAK WIT 2L", "bruto": 106.86}, "000727": {"brand": "epifanes", "name": "EPIFANES MULTI MARINE PRIMER 2 L", "bruto": 44.05}, "000862": {"brand": "epifanes", "name": "EPIFANES MULTI MARINE PRIMER 750 ML", "bruto": 23.55}, "000254": {"brand": "epifanes", "name": "EPIFANES MULTIFORTE 4 L", "bruto": 70.41}, "000251": {"brand": "epifanes", "name": "EPIFANES MULTILUX 2L", "bruto": 57.36}, "000249": {"brand": "epifanes", "name": "EPIFANES MULTILUX 750 ML", "bruto": 23.14}, "001383": {"brand": "epifanes", "name": "EPIFANES NAUTIFORTE 750 ML", "bruto": 35.87}, "002492": {"brand": "epifanes", "name": "EPIFANES NAUTIFORTE WIT 2L", "bruto": 93.97}, "002272": {"brand": "epifanes", "name": "EPIFANES POLY-URETHANE BOOTLAK 3 KG KLEUR", "bruto": 130.0}, "004097": {"brand": "epifanes", "name": "EPIFANES POLY-URETHANE BOOTLAK 3 KG WIT", "bruto": 130.0}, "001382": {"brand": "epifanes", "name": "EPIFANES POLY-URETHANE BOOTLAK 750 GR", "bruto": 43.39}, "001089": {"brand": "epifanes", "name": "EPIFANES POLY-URETHANE BOOTLAK 750 GR RAL KLEUR", "bruto": 50.17}, "004098": {"brand": "epifanes", "name": "EPIFANES POLYLUX WIT 3000 GR", "bruto": 130.0}, "002273": {"brand": "epifanes", "name": "EPIFANES PU KWASTVERDUNNING 1L", "bruto": 21.32}, "002764": {"brand": "epifanes", "name": "EPIFANES PU KWASTVERDUNNING 5L", "bruto": 105.12}, "002340": {"brand": "epifanes", "name": "EPIFANES PU SLOW REDUCER 1L", "bruto": 28.35}, "001028": {"brand": "epifanes", "name": "EPIFANES RAPIDCLEAR 750ML", "bruto": 34.38}, "001026": {"brand": "epifanes", "name": "EPIFANES SEAPOWER CLEANER + WAX 500ML", "bruto": 13.64}, "001029": {"brand": "epifanes", "name": "EPIFANES SEAPOWER COLOR RESTORER 500ML", "bruto": 17.27}, "001147": {"brand": "epifanes", "name": "EPIFANES SEAPOWER SUPER POLY BOAT WAX 500ML", "bruto": 17.27}, "000625": {"brand": "epifanes", "name": "EPIFANES TEAK OIL SEALER 1 L", "bruto": 22.73}, "000353": {"brand": "epifanes", "name": "EPIFANES VERDUNNER D-100 1L", "bruto": 15.37}, "000139": {"brand": "epifanes", "name": "EPIFANES VERDUNNER D-100 500ML", "bruto": 10.25}, "001391": {"brand": "epifanes", "name": "EPIFANES VERFAFBIJT 1 L", "bruto": 28.35}, "001949": {"brand": "epifanes", "name": "EPIFANES VERFVERDUNNING 1L", "bruto": 11.24}, "002670": {"brand": "epifanes", "name": "EPIFANES VERFVERDUNNING 5L", "bruto": 35.54}, "001143": {"brand": "epifanes", "name": "EPIFANES WATERLIJNVERF 250ML", "bruto": 12.98}, "002347": {"brand": "nelf_verf", "name": "NELF ANTISLIPPARELS 500G", "bruto": 14.95, "h_pct": 15.0}, "001433": {"brand": "nelf_verf", "name": "NELF RUIMVERF GK 20L", "bruto": 132.8, "h_pct": 15.0}, "001417": {"brand": "nelf_verf", "name": "NELFADUR LAKVERF 2DN KLEUR 5L", "bruto": 228.25, "h_pct": 40.0}, "001414": {"brand": "nelf_verf", "name": "NELFADUR LAKVERF 2DN WIT 5L", "bruto": 198.76, "h_pct": 40.0}, "001419": {"brand": "nelf_verf", "name": "NELFADUR TOPFIINSH ZG WIT 5L", "bruto": 173.47, "h_pct": 40.0}, "001422": {"brand": "nelf_verf", "name": "NELFADUR TOPFINISH SEMIGLOSS KLEUR 5L", "bruto": 197.67, "h_pct": 40.0}, "001420": {"brand": "nelf_verf", "name": "NELFADUR TOPFINISH ZG KLEUR 5L", "bruto": 191.13, "h_pct": 40.0}, "001421": {"brand": "nelf_verf", "name": "NELFADUR TOPFINSH SEMIGLOSS WIT 5L", "bruto": 179.36, "h_pct": 40.0}, "001909": {"brand": "nelf_verf", "name": "NELFAMAR CUPRUM 5L", "bruto": 173, "h_pct": 15.0}, "001527": {"brand": "nelf_verf", "name": "NELFAMAR HB VINYLCOATING 20L", "bruto": 324.22, "h_pct": 40.0}, "001749": {"brand": "nelf_verf", "name": "NELFAMAR MULTIGLOSS RV KLEUR 5L", "bruto": 146.79, "h_pct": 40.0}, "001750": {"brand": "nelf_verf", "name": "NELFAMAR MULTIGLOSS RV WIT 5L", "bruto": 117.65, "h_pct": 40.0}, "001428": {"brand": "nelf_verf", "name": "NELFAMAR PENETRERENDE RUIMVERF 20L", "bruto": 250.47, "h_pct": 40.0}, "001751": {"brand": "nelf_verf", "name": "NELFAMAR SD COATING KLEUR 5L", "bruto": 127.2, "h_pct": 40.0}, "001752": {"brand": "nelf_verf", "name": "NELFAMAR SD COATING WIT 5L", "bruto": 109.97, "h_pct": 40.0}, "001408": {"brand": "nelf_verf", "name": "NELFAMAR SUPERTOP GLOSS DIEPZWART 1L", "bruto": 28.22, "h_pct": 40.0}, "001409": {"brand": "nelf_verf", "name": "NELFAMAR SUPERTOP GLOSS DIEPZWART 2.5L", "bruto": 69.69, "h_pct": 40.0}, "001410": {"brand": "nelf_verf", "name": "NELFAMAR SUPERTOP GLOSS KLEUR 1L", "bruto": 34.52, "h_pct": 40.0}, "001411": {"brand": "nelf_verf", "name": "NELFAMAR SUPERTOP GLOSS KLEUR 2.5L", "bruto": 85.47, "h_pct": 40.0}, "001406": {"brand": "nelf_verf", "name": "NELFAMAR SUPERTOP GLOSS SNEEUWWIT 1L", "bruto": 28.22, "h_pct": 40.0}, "001429": {"brand": "nelf_verf", "name": "NELFAPOX FINISHING PLAMUUR 4KG", "bruto": 130.33, "h_pct": 15.0}, "002398": {"brand": "nelf_verf", "name": "NELFAPOX FW COATING 5L", "bruto": 202.96, "h_pct": 40.0}, "001418": {"brand": "nelf_verf", "name": "NELFAPOX REIPLAMUUR 4KG", "bruto": 132.68, "h_pct": 15.0}, "001748": {"brand": "nelf_verf", "name": "NELFAPOX STL PREMIUM COAT 20L", "bruto": 521.4, "h_pct": 40.0}, "001423": {"brand": "nelf_verf", "name": "NELFAPOX STL PREMIUM COAT 5L", "bruto": 132.22, "h_pct": 40.0}, "002562": {"brand": "nelf_verf", "name": "NELFAPRIME MULTIPRIMER ZF KLEUR 1L", "bruto": 25.24, "h_pct": 40.0}, "001405": {"brand": "nelf_verf", "name": "NELFAPRIME MULTIPRIMER ZF KLEUR 5L", "bruto": 122.88, "h_pct": 40.0}, "002556": {"brand": "nelf_verf", "name": "NELFAPRIME MULTIPRIMER ZF WIT 1L", "bruto": 21.33, "h_pct": 40.0}, "001219": {"brand": "nelf_verf", "name": "NELFAPRIME MULTIPRIMER ZF WIT 5L", "bruto": 103.06, "h_pct": 40.0}, "002561": {"brand": "nelf_verf", "name": "NELFAPRIME MULTIPRIMER ZF ZWART 1L", "bruto": 21.33, "h_pct": 40.0}, "002371": {"brand": "nelf_verf", "name": "NELFAPRIME MULTIPRIMER ZF ZWART 5L", "bruto": 103.06, "h_pct": 40.0}, "002825": {"brand": "nelf_thinner", "name": "NELFASOL VERDUNNER 2K PU 5L", "bruto": 54.66, "h_pct": 0.0}, "001434": {"brand": "nelf_thinner", "name": "NELFASOL VERDUNNER 3210 5L", "bruto": 28.68, "h_pct": 0.0}, "001435": {"brand": "nelf_thinner", "name": "NELFASOL VERDUNNER 3212 5L", "bruto": 40.04, "h_pct": 0.0}, "001436": {"brand": "nelf_thinner", "name": "NELFASOL VERDUNNER 3216 5L", "bruto": 40.48, "h_pct": 0.0}, "001437": {"brand": "nelf_thinner", "name": "NELFASOL VERDUNNER 3226 5L", "bruto": 35.47, "h_pct": 0.0}, "001438": {"brand": "nelf_thinner", "name": "NELFASOL VERDUNNER EP 5L", "bruto": 35.1, "h_pct": 0.0}};
 
@@ -415,6 +416,73 @@
   "004145": null,
   "004146": null,
   "004147": null,
+  "003208": null,
+  "003225": null,
+  "003226": null,
+  "003263": null,
+  "003264": null,
+  "003308": null,
+  "003343": null,
+  "003352": null,
+  "004152": null,
+  "004153": null,
+  "004154": null,
+  "004155": null,
+  "004156": null,
+  "004157": null,
+  "004158": null,
+  "004159": null,
+  "004160": null,
+  "004161": null,
+  "004162": null,
+  "004163": null,
+  "004164": null,
+  "004165": null,
+  "004166": null,
+  "004167": null,
+  "004169": null,
+  "004170": null,
+  "004171": null,
+  "004172": null,
+  "004173": null,
+  "004174": null,
+  "004175": null,
+  "004176": null,
+  "004177": null,
+  "004178": null,
+  "004179": null,
+  "004180": null,
+  "004181": null,
+  "004182": null,
+  "004183": null,
+  "004184": null,
+  "004185": null,
+  "004186": null,
+  "004187": null,
+  "004188": null,
+  "004189": null,
+  "004190": null,
+  "004191": null,
+  "004192": null,
+  "004193": null,
+  "004194": null,
+  "004195": null,
+  "004196": null,
+  "004197": null,
+  "004198": null,
+  "004199": null,
+  "004200": null,
+  "004201": null,
+  "004202": null,
+  "004203": null,
+  "004204": null,
+  "004205": null,
+  "004206": null,
+  "004207": null,
+  "004208": null,
+  "004209": null,
+  "004210": null,
+  "004211": null,
 };
 
   function norm(s) {
