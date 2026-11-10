@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FEMM Antwerpen - Klant- en merkspecifieke kortingen (Sigma/Nelf/Epifanes)
 // @namespace    femm-antwerpen
-// @version      2.8
+// @version      2.9
 // @description  Herberekent automatisch de nettoprijs en het kortingspercentage voor Sigma-, Nelf- en Epifanes-artikelen op basis van de klantspecifieke afspraken (bruto prijslijsten), terwijl je een verkooporder invoert.
 // @match        https://start.exactonline.be/docs/SlsSalesOrderEntry.aspx*
 // @run-at       document-idle
@@ -21,6 +21,7 @@
   // v2.3: nieuwe Fleetguard-filterlijst: 67 extra filtercodes (003208, 004152-004211 e.a.) in netto-lijst.
   // v2.4: artikel 99999 in netto-lijst (nooit korting).
   // v2.5: netto-artikelen krijgen enkel bij het invoeren 0% korting; daarna (na 6 s) mag je de korting handmatig aanpassen.
+  // v2.9: overig artikel heeft code 999999 (6 negens), niet 99999: netto-lijst aangepast.
   // v2.8: zodra een medewerker zelf in het prijs- of kortingsveld typt (of het veld open heeft), grijpt het script daar nooit meer in; dit geldt voor alle regels, ook 99999.
   // v2.7: speciale artikelprijslijst voor FEMM Rotterdam (klantnr 10012): vaste prijs + korting per artikel (zie CUSTOMER_PRICE_LISTS).
   // v2.6: dit geldt voor ALLE regels (merk-artikelen, algemene korting, netto): het script vult enkel in bij het invoeren van het
@@ -490,7 +491,7 @@
   "004210": null,
   "004211": null,
   // Overig artikel: nooit korting
-  "99999": null,
+  "999999": null,
 };
 
   function norm(s) {
