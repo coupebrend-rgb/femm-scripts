@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FEMM Antwerpen - Klant- en merkspecifieke kortingen (Sigma/Nelf/Epifanes)
 // @namespace    femm-antwerpen
-// @version      2.7
+// @version      2.8
 // @description  Herberekent automatisch de nettoprijs en het kortingspercentage voor Sigma-, Nelf- en Epifanes-artikelen op basis van de klantspecifieke afspraken (bruto prijslijsten), terwijl je een verkooporder invoert.
 // @match        https://start.exactonline.be/docs/SlsSalesOrderEntry.aspx*
 // @run-at       document-idle
@@ -21,6 +21,7 @@
   // v2.3: nieuwe Fleetguard-filterlijst: 67 extra filtercodes (003208, 004152-004211 e.a.) in netto-lijst.
   // v2.4: artikel 99999 in netto-lijst (nooit korting).
   // v2.5: netto-artikelen krijgen enkel bij het invoeren 0% korting; daarna (na 6 s) mag je de korting handmatig aanpassen.
+  // v2.8: zodra een medewerker zelf in het prijs- of kortingsveld typt (of het veld open heeft), grijpt het script daar nooit meer in; dit geldt voor alle regels, ook 99999.
   // v2.7: speciale artikelprijslijst voor FEMM Rotterdam (klantnr 10012): vaste prijs + korting per artikel (zie CUSTOMER_PRICE_LISTS).
   // v2.6: dit geldt voor ALLE regels (merk-artikelen, algemene korting, netto): het script vult enkel in bij het invoeren van het
   //       artikel (of bij wisselen van klant); daarna kan alles handmatig overschreven worden.
@@ -665,7 +666,10 @@
       st = { code: code, ts: Date.now() };
       _rowState.set(idx, st);
     }
+    if (st.manual) return; // medewerker heeft zelf prijs/korting getypt: nooit meer overschrijven
     if (Date.now() - st.ts > ENFORCE_MS) return; // na de eerste seconden: handmatig aanpasbaar
+    const ae = doc.activeElement; // medewerker is net in het prijs-/kortingsveld van deze regel bezig
+    if (ae && ae.id && rowIndexFromId(ae.id) === idx && /_(DiscountDisplay|PriceFCDisplay)$/.test(ae.id)) return;
 
     // Klantspecifieke prijslijst (bv. FEMM Rotterdam): vaste prijs + korting, voorrang op al de rest
     const priceList = findPriceList(doc);
@@ -780,6 +784,17 @@
     }
     doc.body.dataset.femmObserverAttached2 = '1';
     markExistingRows(doc);
+
+    // Echte handmatige invoer (isTrusted) in prijs- of kortingsveld: regel voortaan met rust laten.
+    ['input', 'change'].forEach(evName => {
+      doc.addEventListener(evName, (e) => {
+        if (!e.isTrusted) return; // door het script zelf ingevuld = geen handmatige invoer
+        const m = e.target && e.target.id && e.target.id.match(/^grd_r(\d+)_(DiscountDisplay|PriceFCDisplay)(Hidden)?$/);
+        if (!m) return;
+        const stt = _rowState.get(m[1]);
+        if (stt) stt.manual = true;
+      }, true);
+    });
 
     doc.addEventListener('change', (e) => {
       const id = e.target && e.target.id;
