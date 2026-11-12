@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FEMM Antwerpen - Klant- en merkspecifieke kortingen (Sigma/Nelf/Epifanes)
 // @namespace    femm-antwerpen
-// @version      2.9
+// @version      2.11
 // @description  Herberekent automatisch de nettoprijs en het kortingspercentage voor Sigma-, Nelf- en Epifanes-artikelen op basis van de klantspecifieke afspraken (bruto prijslijsten), terwijl je een verkooporder invoert.
 // @match        https://start.exactonline.be/docs/SlsSalesOrderEntry.aspx*
 // @run-at       document-idle
@@ -21,6 +21,7 @@
   // v2.3: nieuwe Fleetguard-filterlijst: 67 extra filtercodes (003208, 004152-004211 e.a.) in netto-lijst.
   // v2.4: artikel 99999 in netto-lijst (nooit korting).
   // v2.5: netto-artikelen krijgen enkel bij het invoeren 0% korting; daarna (na 6 s) mag je de korting handmatig aanpassen.
+  // v2.11: een handmatig ingevulde prijs/korting blijft staan, ook als Exact die zelf herberekent (bv. bij wijziging van het aantal).
   // v2.9: overig artikel heeft code 999999 (6 negens), niet 99999: netto-lijst aangepast.
   // v2.8: zodra een medewerker zelf in het prijs- of kortingsveld typt (of het veld open heeft), grijpt het script daar nooit meer in; dit geldt voor alle regels, ook 99999.
   // v2.7: speciale artikelprijslijst voor FEMM Rotterdam (klantnr 10012): vaste prijs + korting per artikel (zie CUSTOMER_PRICE_LISTS).
@@ -656,6 +657,26 @@
     return { price, pct };
   }
 
+  // Handmatig getypte prijs/korting onthouden en terugzetten als Exact ze zelf wijzigt
+  // (bv. prijsherberekening na wijziging van het aantal).
+  function enforceManualValues(doc, idx, st) {
+    const ae = doc.activeElement;
+    [['price', 'grd_r' + idx + '_PriceFCDisplay', null],
+     ['disc', 'grd_r' + idx + '_DiscountDisplay', 'grd_r' + idx + '_DiscountDisplayHidden']].forEach(f => {
+      const key = f[0];
+      if (!st[key + 'Edited']) return;
+      const el = doc.getElementById(f[1]);
+      if (!el || ae === el) return; // veld is open: de medewerker is bezig
+      const cur = (el.value || '').trim();
+      if (st[key + 'Lock'] == null) { st[key + 'Lock'] = cur; return; }
+      if (cur !== st[key + 'Lock']) {
+        setFieldValue(el, st[key + 'Lock']);
+        const hid = f[2] ? doc.getElementById(f[2]) : null;
+        if (hid) setFieldValue(hid, st[key + 'Lock']);
+      }
+    });
+  }
+
   function checkAndFixRow(doc, itemAltEl) {
     const idx = rowIndexFromId(itemAltEl.id);
     if (idx === null) return;
@@ -667,7 +688,10 @@
       st = { code: code, ts: Date.now() };
       _rowState.set(idx, st);
     }
-    if (st.manual) return; // medewerker heeft zelf prijs/korting getypt: nooit meer overschrijven
+    if (st.manual) { // medewerker heeft zelf prijs/korting getypt: nooit meer overschrijven
+      enforceManualValues(doc, idx, st);
+      return;
+    }
     if (Date.now() - st.ts > ENFORCE_MS) return; // na de eerste seconden: handmatig aanpasbaar
     const ae = doc.activeElement; // medewerker is net in het prijs-/kortingsveld van deze regel bezig
     if (ae && ae.id && rowIndexFromId(ae.id) === idx && /_(DiscountDisplay|PriceFCDisplay)$/.test(ae.id)) return;
@@ -793,7 +817,11 @@
         const m = e.target && e.target.id && e.target.id.match(/^grd_r(\d+)_(DiscountDisplay|PriceFCDisplay)(Hidden)?$/);
         if (!m) return;
         const stt = _rowState.get(m[1]);
-        if (stt) stt.manual = true;
+        if (stt) {
+          stt.manual = true;
+          if (m[2] === 'PriceFCDisplay') { stt.priceEdited = true; stt.priceLock = null; }
+          if (m[2] === 'DiscountDisplay') { stt.discEdited = true; stt.discLock = null; }
+        }
       }, true);
     });
 
