@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FEMM Antwerpen - Klant- en merkspecifieke kortingen (Sigma/Nelf/Epifanes)
 // @namespace    femm-antwerpen
-// @version      2.11
+// @version      2.13
 // @description  Herberekent automatisch de nettoprijs en het kortingspercentage voor Sigma-, Nelf- en Epifanes-artikelen op basis van de klantspecifieke afspraken (bruto prijslijsten), terwijl je een verkooporder invoert.
 // @match        https://start.exactonline.be/docs/SlsSalesOrderEntry.aspx*
 // @run-at       document-idle
@@ -21,6 +21,8 @@
   // v2.3: nieuwe Fleetguard-filterlijst: 67 extra filtercodes (003208, 004152-004211 e.a.) in netto-lijst.
   // v2.4: artikel 99999 in netto-lijst (nooit korting).
   // v2.5: netto-artikelen krijgen enkel bij het invoeren 0% korting; daarna (na 6 s) mag je de korting handmatig aanpassen.
+  // v2.13: de omschrijving speelt GEEN rol: het script kijkt enkel naar de artikelcode (en naar handmatig getypte prijs/korting).
+  // v2.12: handmatige invoer wordt nu herkend aan focus-in/uit met gewijzigde waarde (Exact stuurt zelf 'change'-events, dus isTrusted werkte niet).
   // v2.11: een handmatig ingevulde prijs/korting blijft staan, ook als Exact die zelf herberekent (bv. bij wijziging van het aantal).
   // v2.9: overig artikel heeft code 999999 (6 negens), niet 99999: netto-lijst aangepast.
   // v2.8: zodra een medewerker zelf in het prijs- of kortingsveld typt (of het veld open heeft), grijpt het script daar nooit meer in; dit geldt voor alle regels, ook 99999.
@@ -810,20 +812,33 @@
     doc.body.dataset.femmObserverAttached2 = '1';
     markExistingRows(doc);
 
-    // Echte handmatige invoer (isTrusted) in prijs- of kortingsveld: regel voortaan met rust laten.
-    ['input', 'change'].forEach(evName => {
-      doc.addEventListener(evName, (e) => {
-        if (!e.isTrusted) return; // door het script zelf ingevuld = geen handmatige invoer
-        const m = e.target && e.target.id && e.target.id.match(/^grd_r(\d+)_(DiscountDisplay|PriceFCDisplay)(Hidden)?$/);
-        if (!m) return;
-        const stt = _rowState.get(m[1]);
-        if (stt) {
-          stt.manual = true;
-          if (m[2] === 'PriceFCDisplay') { stt.priceEdited = true; stt.priceLock = null; }
-          if (m[2] === 'DiscountDisplay') { stt.discEdited = true; stt.discLock = null; }
-        }
-      }, true);
-    });
+    // Handmatige invoer herkennen: bij het verlaten van een prijs- of kortingsveld is de waarde
+    // veranderd t.o.v. het moment dat het veld de focus kreeg. (Exact stuurt zelf 'change'-events, dus die zijn
+    // niet bruikbaar om te zien of een mens iets typte.)
+    const _focusVals = new Map();
+    const FIELD_RE = /^grd_r(\d+)_(DiscountDisplay|PriceFCDisplay)$/;
+    doc.addEventListener('focusin', (e) => {
+      const id = e.target && e.target.id;
+      if (id && FIELD_RE.test(id)) _focusVals.set(id, e.target.value);
+    }, true);
+    doc.addEventListener('focusout', (e) => {
+      const id = e.target && e.target.id;
+      const m = id && id.match(FIELD_RE);
+      if (!m || !_focusVals.has(id)) return;
+      const before = _focusVals.get(id);
+      _focusVals.delete(id);
+      if (e.target.value === before) return; // niets gewijzigd
+      let stt = _rowState.get(m[1]);
+      if (!stt) {
+        const it = doc.getElementById('grd_r' + m[1] + '_Item_alt');
+        stt = { code: it ? (it.value || '').trim() : '', ts: 0 };
+        _rowState.set(m[1], stt);
+      }
+      stt.manual = true;
+      const val = (e.target.value || '').trim();
+      if (m[2] === 'PriceFCDisplay') { stt.priceEdited = true; stt.priceLock = val; }
+      else if (m[2] === 'DiscountDisplay') { stt.discEdited = true; stt.discLock = val; }
+    }, true);
 
     doc.addEventListener('change', (e) => {
       const id = e.target && e.target.id;
