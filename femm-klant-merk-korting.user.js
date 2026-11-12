@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         FEMM Antwerpen - Klant- en merkspecifieke kortingen (Sigma/Nelf/Epifanes)
 // @namespace    femm-antwerpen
-// @version      2.13
+// @version      2.14
 // @description  Herberekent automatisch de nettoprijs en het kortingspercentage voor Sigma-, Nelf- en Epifanes-artikelen op basis van de klantspecifieke afspraken (bruto prijslijsten), terwijl je een verkooporder invoert.
 // @match        https://start.exactonline.be/docs/SlsSalesOrderEntry.aspx*
 // @run-at       document-idle
@@ -21,6 +21,7 @@
   // v2.3: nieuwe Fleetguard-filterlijst: 67 extra filtercodes (003208, 004152-004211 e.a.) in netto-lijst.
   // v2.4: artikel 99999 in netto-lijst (nooit korting).
   // v2.5: netto-artikelen krijgen enkel bij het invoeren 0% korting; daarna (na 6 s) mag je de korting handmatig aanpassen.
+  // v2.14: FEMM Rotterdam: de artikelen uit de prijslijst worden CONSTANT gecorrigeerd (prijs + korting), ook na wijziging van aantal of omschrijving; niet handmatig overschrijfbaar.
   // v2.13: de omschrijving speelt GEEN rol: het script kijkt enkel naar de artikelcode (en naar handmatig getypte prijs/korting).
   // v2.12: handmatige invoer wordt nu herkend aan focus-in/uit met gewijzigde waarde (Exact stuurt zelf 'change'-events, dus isTrusted werkte niet).
   // v2.11: een handmatig ingevulde prijs/korting blijft staan, ook als Exact die zelf herberekent (bv. bij wijziging van het aantal).
@@ -690,22 +691,17 @@
       st = { code: code, ts: Date.now() };
       _rowState.set(idx, st);
     }
-    if (st.manual) { // medewerker heeft zelf prijs/korting getypt: nooit meer overschrijven
-      enforceManualValues(doc, idx, st);
-      return;
-    }
-    if (Date.now() - st.ts > ENFORCE_MS) return; // na de eerste seconden: handmatig aanpasbaar
-    const ae = doc.activeElement; // medewerker is net in het prijs-/kortingsveld van deze regel bezig
-    if (ae && ae.id && rowIndexFromId(ae.id) === idx && /_(DiscountDisplay|PriceFCDisplay)$/.test(ae.id)) return;
-
-    // Klantspecifieke prijslijst (bv. FEMM Rotterdam): vaste prijs + korting, voorrang op al de rest
+    // Klantspecifieke prijslijst (bv. FEMM Rotterdam): vaste prijs + korting, CONSTANT gecorrigeerd,
+    // met voorrang op al de rest. Regels van een reeds bestaande (geopende) order blijven met rust (ts === 0).
     const priceList = findPriceList(doc);
-    if (priceList && Object.prototype.hasOwnProperty.call(priceList.items, code)) {
+    if (priceList && st.ts !== 0 && Object.prototype.hasOwnProperty.call(priceList.items, code)) {
       const it = priceList.items[code];
       const pEl = doc.getElementById('grd_r' + idx + '_PriceFCDisplay');
       const dEl = doc.getElementById('grd_r' + idx + '_DiscountDisplay');
       const dHidEl = doc.getElementById('grd_r' + idx + '_DiscountDisplayHidden');
       if (!dEl) return;
+      const aeP = doc.activeElement; // niet overschrijven terwijl iemand in het veld staat
+      if (aeP && (aeP === pEl || aeP === dEl)) return;
       const pStr = fmt(it.price), dStr = fmt(it.pct);
       let ch = false;
       if (pEl && (pEl.value || '').trim() !== pStr) { setFieldValue(pEl, pStr); ch = true; }
@@ -717,6 +713,13 @@
       if (ch) flashRow(dEl, 'Automatisch aangepast: prijslijst ' + priceList.name + ' (prijs ' + pStr + ', korting ' + dStr + '%).');
       return;
     }
+    if (st.manual) { // medewerker heeft zelf prijs/korting getypt: nooit meer overschrijven
+      enforceManualValues(doc, idx, st);
+      return;
+    }
+    if (Date.now() - st.ts > ENFORCE_MS) return; // na de eerste seconden: handmatig aanpasbaar
+    const ae = doc.activeElement; // medewerker is net in het prijs-/kortingsveld van deze regel bezig
+    if (ae && ae.id && rowIndexFromId(ae.id) === idx && /_(DiscountDisplay|PriceFCDisplay)$/.test(ae.id)) return;
 
     // Controleer of dit artikel een VASTE NETTOPRIJS heeft (prijs is al correct in Exact, alleen korting op 0% zetten)
     if (Object.prototype.hasOwnProperty.call(NETTO_VASTE_PRIJZEN, code)) {
